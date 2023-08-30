@@ -1,0 +1,396 @@
+---
+title: "Do measures of real-world physical behavior provide insights into the well-being and physical function of cancer survivors?"
+author: "Shelby L. Bachman et al."
+date: today
+format: html
+execute: 
+  echo: false
+  warning: false
+  message: false
+editor: source
+---
+
+```{r}
+
+# set options for knitr
+options(knitr.kable.NA = '')
+
+# set rng
+set.seed(1212)
+
+```
+
+```{r}
+
+# record version of R used
+print(R.version$version.string)
+
+```
+
+```{r}
+
+# this section checks for necessary R packages
+# and installs as needed
+
+## list of packages
+packages <- c('here', 'data.table', 'dplyr', 'knitr', 'tidyr', 'stringr',
+              'kableExtra', 'lubridate', 'ggplot2', 'ggpubr', 'GGally', 'corrplot', 'ggcorrplot',
+              'see', 'RNOmni', 'cowplot', 'correlation', 'ggsci', 'papaja')
+
+## install packages that are not installed
+package.check <- lapply(
+  packages,
+  FUN = function(x) {
+    if (!require(x, character.only = TRUE)) {
+      install.packages(x, dependencies = TRUE)
+    }
+  }
+)
+
+```
+
+```{r}
+
+# create relevant directory for figures if it doesn't exist
+if (!dir.exists(here('figures'))) {
+  dir.create(here('figures'))
+}
+
+```
+
+```{r}
+
+load(here('data', 'CSU-cancer-survivors.RData'))
+source(here('scripts', '01_define-functions.R'))
+source(here('scripts', '02_combine-datasets.R'))
+source(here('scripts', '03_add-variables.R'))
+source(here('scripts', '04_summarize-missingness.R'))
+source(here('scripts', '05_summarize-validity.R'))
+source(here('scripts', '06_check-normality.R'))
+source(here('scripts', '07_transform-variables.R'))
+source(here('scripts', '08_compare-datasets.R'))
+source(here('scripts', '09_summarize-demographics.R'))
+source(here('scripts', '10_summarize-measures.R'))
+source(here('scripts', '11_summarize-ceiling-effects.R'))
+source(here('scripts', '12_summarize-distributions.R'))
+source(here('scripts', '13_split-variables.R'))
+source(here('scripts', '14_analyze-correlations.R'))
+source(here('scripts', '15_compare-splits.R'))
+source(here('scripts', '16_compare-regressions.R'))
+source(here('scripts', '17_analyze-activity-fragmentation.R'))
+
+```
+
+## Summary of datasets
+
+Data used in this project reflect `r n_combined` cancer survivors (`r n_study1` Study 1, `r n_study2` Study 2).
+
+```{r table1}
+
+table1_rendered <- kable(
+  table1,
+  format = 'html',
+  col.names = c('', 'N (%)', 'Mean (SD)', 'Range'),
+  align = c('l', 'c', 'c', 'c'),
+  booktabs = TRUE,
+  escape = FALSE,
+  caption = 'Table 1. Sample characteristics.'
+) %>%
+  kable_paper(full_width = FALSE) %>%
+  group_rows(start_row = 2, end_row = 3, group_label = 'Sex') %>%
+  group_rows(start_row = 5, end_row = 10, group_label = 'Education level') %>%
+  group_rows(start_row = 13, end_row = 18, group_label = 'Cancer stage at diagnosis') %>%
+  group_rows(start_row = 19, end_row = 23, group_label = 'Cancer treatment') %>%
+  group_rows(start_row = 24, end_row = 27, group_label = 'Number of treatment types')
+
+table1_rendered
+
+```
+
+```{r tableS1}
+
+tableS1_rendered <- kable(
+  tableS1,
+  format = 'html',
+  col.names = c('', 'N (%)', 'Mean (SD)', 'Range', 'N (%)', 'Mean (SD)', 'Range', 'Comparison, p'),
+  align = c('l', 'c', 'c', 'c', 'c', 'c', 'c', 'c'),
+  booktabs = TRUE,
+  escape = FALSE,
+  caption = 'Table S1. Comparison of demographics and cancer characteristics of participants from Studies 1 and 2.'
+) %>%
+  kable_paper(full_width = FALSE) %>%
+  group_rows(start_row = 2, end_row = 3, group_label = 'Sex') %>%
+  group_rows(start_row = 5, end_row = 10, group_label = 'Education level') %>%
+  group_rows(start_row = 12, end_row = 17, group_label = 'Cancer stage at diagnosis') %>%
+  group_rows(start_row = 18, end_row = 22, group_label = 'Cancer treatment') %>%
+  group_rows(start_row = 23, end_row = 26, group_label = 'Number of treatment types')
+
+tableS1_rendered
+
+```
+```{r}
+            
+tableS2_rendered <- kable(
+  tableS2 %>% dplyr::select(-variable),
+  format = 'html',
+  col.names = c('', 'N (%), Study 1', 'N (%), Study 2', 'N (%), Combined'),
+  align = c('l', 'c', 'c', 'c'),
+  booktabs = TRUE,
+  escape = FALSE,
+  caption = 'Table S2. Cancer type at diagnosis for participants in Study 1, Study 2, and the combined dataset (both studies).'
+) %>%
+  kable_paper(full_width = FALSE)
+
+tableS2_rendered
+
+```
+
+Missing values are summarized below:
+
+```{r}
+
+table_missingness <- summary_missingness %>%
+  kable(
+    format = 'html',
+    col.names = c('Measure', 'N (%) Missing, Study 1', 'N (%) Missing, Study 2', 'Combined'),
+    align = c('l', 'c', 'c', 'c'),
+    booktabs = TRUE,
+    escape = FALSE
+) %>%
+    kable_paper(full_width = FALSE)
+
+table_missingness
+
+```
+
+## Validity and non-wear time
+
+Summary of validity and non-wear time:
+
+- `r n_lessthan4validdays` participant(s) with <4 valid days
+- Participants had an average valid day quantity of `r summary_validdays`
+- Participants had an average non-wear time of `r summary_nonwear`
+
+Participants with predicted VO2 available:
+
+- `r n_vo2` participants (`r pct_vo2`%) had available values of predicted VO2
+
+## Summary of measures
+
+```{r table2}
+
+table2_rendered <- kable(
+  table2,
+  format = 'html',
+  col.names = c('', 'Mean (SD)', 'Range'),
+  align = c('l', 'c', 'c'),
+  booktabs = TRUE,
+  escape = FALSE,
+  caption = 'Table 2. Summary of measures of participant-reported well-being and physical function, aerobic fitness, and real-world physical behavior.'
+) %>%
+  kable_paper(full_width = FALSE) %>%
+  group_rows(start_row = 1, end_row = 4, group_label = 'Participant-reported well-being and physical function') %>%
+  group_rows(start_row = 5, end_row = 5, group_label = 'Aerobic fitness') %>%
+  group_rows(start_row = 6, end_row = 12, group_label = 'Real-world physical behavior')
+
+table2_rendered
+
+
+```
+
+Ceiling effects for participant-reported measures are summarized below:
+
+```{r}
+
+table_ceiling <- kable(
+  ceiling_effects, 
+  format = 'html',
+  col.names = c('Measure', '% (N) of Participants at Ceiling'),
+  align = c('l', 'c'),
+  booktabs = TRUE,
+  escape = FALSE,
+  caption = 'Ceiling effects for participant-reported measures.') %>%
+    kable_paper(full_width = FALSE)
+
+table_ceiling
+
+```
+
+Distributions of measures are visualized below:
+
+```{r figureS1, fig.cap = 'Figure S1'}
+
+include_graphics(here('figures', 'figureS1_final.png'))
+
+```
+
+```{r figureS2, fig.cap = 'Figure S2'}
+
+include_graphics(here('figures', 'figureS2_final.png'))
+
+```
+
+## Intercorrelations between related measures
+
+```{r figureS3, fig.cap = 'Figure S3'}
+
+include_graphics(here('figures', 'figureS3_final.png'))
+
+```
+
+```{r}
+
+cormat_subjective %>%
+  dplyr::select(Parameter1, Parameter2, rho, CI_low, CI_high, p) %>%
+  kable(align = c('l', 'l', 'c', 'c', 'c', 'c'),
+        digits = c(NA, NA, 3, 3, 3, 3),
+        caption = 'Numeric equivalent of Figure S3', 
+        booktabs = TRUE) %>%
+  kable_paper(full_width = FALSE)
+
+```
+
+```{r figureS4, fig.cap = 'Figure S4'}
+
+include_graphics(here('figures', 'figureS4_final.png'))
+
+```
+
+```{r}
+
+cormat_physbehav %>%
+  dplyr::select(Parameter1, Parameter2, rho, CI_low, CI_high, p) %>%
+  kable(align = c('l', 'l', 'c', 'c', 'c', 'c'),
+        digits = c(NA, NA, 3, 3, 3, 3),
+        caption = 'Numeric equivalent of Figure S4', 
+        booktabs = TRUE) %>%
+  kable_paper(full_width = FALSE)
+
+```
+
+- Average daily step count, time in sedentary behavior, time in light activity, time in moderate-to-vigorous activity, and time in stepping bouts over 1 minute all exhibited significant intercorrelations (*p*s < `r max_p_objective`) 
+
+- Weighted median cadence in stepping bouts over 1 minute exhibited significant correlations with 2 of the measures of real-world behavior (*p*s < `r max_p_cadence$max_p`) but was not significantly correlated with sedentary time, time in light activity, time in moderate-to-vigorous activity, or step count (see table above)
+
+- Peak 30s cadence was significantly with 4 measures of real-world behavior (*p*s < `r max_p_30scadence$max_p`) but was not significantly correlated with sedentary time or time in light activity (see table above)
+
+
+## Most measures of real-world physical behavior were not associated with self-reported well-being or physical function
+
+```{r figure1, fig.cap = 'Figure 1'}
+
+include_graphics(here('figures', 'figure1_final.png'))
+
+```
+
+```{r}
+
+cormat_all %>%
+  dplyr::select(Parameter1, Parameter2, rho, p) %>%
+  kable(align = c('l', 'l', 'c', 'c'),
+        digits = c(NA, NA, 3, 3),
+        caption = 'Numeric equivalent of Figure 1', 
+        booktabs = TRUE) %>%
+  kable_paper(full_width = FALSE)
+
+```
+
+- The various measures of real-world physical behavior were not significantly correlated with FACT-G total well-being (*p*s >= `r min_p_objective_factgtotal`)
+
+- Average daily time in stepping bouts over 1 minute was significantly correlated with FACT-G physical well-being, FACT-G physical well-being 5-item subset, and linked PROMIS-PF T-scores (see table above), but no other measures were associated with FACT-G physical well-being, FACT-G physical well-being 5-item subset, or PROMIS-PF T-scores (*p*s >= `r round(min_p_objective_promis_factgphys, 3)`)
+
+
+```{r figureS5, fig.cap = 'Figure S5'}
+
+include_graphics(here('figures', 'figureS5_final.png'))
+
+```
+
+```{r}
+
+df_pcor %>%
+  dplyr::select(Parameter1 = var1, Parameter2 = var2, rho = estimate, p = p.value) %>%
+  kable(align = c('l', 'l', 'c', 'c'),
+        digits = c(NA, NA, 3, 3),
+        caption = 'Numeric equivalent of Figure S5', 
+        booktabs = TRUE) %>%
+  kable_paper(full_width = FALSE)
+
+```
+
+- When accounting for the effects of demographics and cancer characteristics on these associations using a partial Spearman correlation framework, the pattern of significance was largely unchanged, except that the correlation between time in stepping bouts over 1 minute and FACT-G physical well-being was no longer significant (see table above)
+
+- Using the partial correlation framework, no other measures of physical behavior were significantly correlated FACT-G physical well-being, FACT-G physical well-being 5-item subset, or linked PROMIS-PF T-scores (ps >= `r round(min_p_objective_promis_factgphys_partial, 3)`)
+
+
+```{r figure2, fig.cap = 'Figure 2'}
+
+include_graphics(here('figures', 'figure2_final.png'))
+
+```
+```{r figureS6, fig.cap = 'Figure S6'}
+
+include_graphics(here('figures', 'figureS6_final.png'))
+
+```
+
+## Real-world physical behavior was associated with aerobic fitness
+
+- All but one of the accelerometry-derived measures of real-world physical behavior were significantly correlated with submaximal VO2 (*p*s <= `r max_p_objective_vo2`)
+
+## Aerobic fitness was not associated with self-reported well-being or physical function
+
+- Spearman correlation analyses indicated that predicted VO2 was not significantly correlated with FACT-G total well-being, FACT-G physical well-being, FACT-G physical well-being 5-item subset, or linked PROMIS-PF T-scores (*p*s >= `r round(min_p_vo2_subjective, 3)`)
+
+- The pattern of significance was unchanged when using a partial correlation approach to account for the effects of demographic and cancer characteristics on these associations (*p*s >= `r round(min_p_vo2_subjective_partial, 3)`)
+
+## Associations with real-world physical behavior were stronger for aerobic fitness than for self-reported well-being or physical function
+
+```{r figure3, fig.cap = 'Figure 3'}
+
+include_graphics(here('figures', 'figure3_final.png'))
+
+```
+
+
+## Results of activity fragmentation analyses
+
+### Activity fragmentation was associated with aerobic fitness, but not with self-reported well-being or physical function 
+
+```{r figureS7, fig.cap = 'Figure S7'}
+
+include_graphics(here('figures', 'figureS7_final.png'))
+
+```
+
+```{r}
+
+cormat_AF_subj_vo2 %>%
+  dplyr::select(Parameter1, Parameter2, rho, p) %>%
+  kable(align = c('l', 'l', 'c', 'c'),
+        digits = c(NA, NA, 3, 3),
+        caption = 'Numeric equivalent of Figure S7A', 
+        booktabs = TRUE) %>%
+  kable_paper(full_width = FALSE)
+
+```
+
+```{r}
+
+df_pcor_af  %>%
+  dplyr::select(var1, var2, estimate, p.value) %>%
+  kable(align = c('l', 'l', 'c', 'c'),
+        digits = c(NA, NA, 3, 3),
+        caption = 'Numeric equivalent of Figure S7B', 
+        booktabs = TRUE) %>%
+  kable_paper(full_width = FALSE)
+
+```
+
+### Activity fragmentation was more associated with aerobic fitness than with self-reported well-being and physical function
+
+```{r figureS8, fig.cap = 'Figure S8'}
+
+include_graphics(here('figures', 'figureS8_final.png'))
+
+```
